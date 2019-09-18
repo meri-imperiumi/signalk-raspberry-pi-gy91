@@ -2,6 +2,22 @@ const BME280 = require('bme280-sensor');
 const MPU9250 = require('mpu9250');
 const AHRS = require('ahrs');
 
+function toRadians(degrees) {
+  return degrees * (Math.PI / 180);
+}
+
+function calcHeading(x, y) {
+  var heading = Math.atan2(y, x) * 180 / Math.PI;
+
+  if (heading < -180) {
+    heading += 360;
+  } else if (heading > 180) {
+    heading -= 360;
+  }
+
+  return heading;
+}
+
 module.exports = function plugin(app) {
   let timer = null;
   let lastMag = [0, 0, 0];
@@ -74,7 +90,8 @@ module.exports = function plugin(app) {
             0.3564152018229167
           ]
         }
-      }*/
+      }
+      */
     };
     const bme280 = new BME280(bmeOptions);
     const mpu9250 = new MPU9250(mpuOptions);
@@ -87,9 +104,23 @@ module.exports = function plugin(app) {
     let lastSending = new Date();
 
     function createDeltaMessage(bmeData, mpuData) {
-      //console.log(madgwick.getEulerAnglesDegrees().heading, mpuData[3], mpuData[4], mpuData[5], mpuData[6], mpuData[7], mpuData[8]);
-      console.log(madgwick.getEulerAnglesDegrees());
-      const radians = madgwick.getEulerAngles();
+      const madDeg = madgwick.getEulerAnglesDegrees();
+      const values = {
+        heading: {
+          raw: calcHeading(mpuData[6], mpuData[7]),
+          fix: madDeg.heading,
+        },
+        pitch: {
+          raw: mpu9250.getPitch(mpuData),
+          fix: madDeg.pitch,
+        },
+        roll: {
+          raw: mpu9250.getRoll(mpuData),
+          fix: madDeg.roll,
+        },
+      };
+      console.log(JSON.stringify(values, null, 2));
+      const useValue = 'raw';
       return {
         context: `vessels.${app.selfId}`,
         updates: [
@@ -109,13 +140,13 @@ module.exports = function plugin(app) {
               },
               {
                 path: 'navigation.headingMagnetic',
-                value: radians.heading,
+                value: toRadians(values.heading[useValue]),
               },
               {
                 path: 'navigation.attitude',
                 value: {
-                  pitch: radians.pitch,
-                  roll: radians.roll,
+                  pitch: toRadians(values.pitch[useValue]),
+                  roll: toRadians(values.roll[useValue]),
                   yaw: 0,
                 },
               },
