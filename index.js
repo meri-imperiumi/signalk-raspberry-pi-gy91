@@ -1,21 +1,6 @@
 const BME280 = require('bme280-sensor');
 const MPU9250 = require('mpu9250');
-
-function calcHeading(x, y) {
-    var heading = Math.atan2(y, x) * 180 / Math.PI;
-    if (heading < 0) {
-      heading += 2*Math.PI
-    }
-    /*
-    if (heading < -180) {
-        heading += 360;
-    } else if (heading > 180) {
-        heading -= 360;
-    }
-    */
-
-    return heading;
-}
+const AHRS = require('ahrs');
 
 module.exports = function plugin(app) {
   let timer = null;
@@ -54,22 +39,30 @@ module.exports = function plugin(app) {
     const mpuOptions = {
       device: `/dev/i2c-${options.i2c_bus || 1}`,
       UpMagneto: true,
-      magCalibration: { min: { x: -87.2578125, y: -35.9765625, z: -126.03125 },
-          max: { x: 105.1875, y: 115.125, z: 75.15625 },
-          offset: { x: 8.96484375, y: 39.57421875, z: -25.4375 },
-          scale:
-           { x: 1.4152965534039703,
-                  y: 1.8025438188304639,
-                  z: 1.3537977632805218 } },
-      DEBUG: true,
     };
     const bme280 = new BME280(bmeOptions);
     const mpu9250 = new MPU9250(mpuOptions);
+    const madgwick = new AHRS({
+      sampleInterval: 1 / (options.rate || 1),
+      algorithm: 'Madgwick',
+    });
 
     function createDeltaMessage(bmeData, mpuData) {
+      madgwick.update(
+        mpuData[3], // gyro
+        mpuData[4],
+        mpuData[5],
+        mpuData[0], // accelerometer
+        mpuData[1],
+        mpuData[2],
+        mpuData[6], // compass
+        mpuData[7],
+        mpuData[8],
+      );
       console.log(`Gyro x: ${mpuData[3]} y: ${mpuData[4]} z: ${mpuData[5]}`);
       console.log(`Compass x: ${mpuData[6]} y: ${mpuData[7]} z: ${mpuData[8]}`);
-      console.log(calcHeading(mpuData[6], mpuData[7]));
+      console.log(madgwick.getEulerAnglesDegrees());
+      const radians = madgwick.getEulerAngles();
       return {
         context: `vessels.${app.selfId}`,
         updates: [
@@ -89,7 +82,14 @@ module.exports = function plugin(app) {
               },
               {
                 path: 'navigation.headingMagnetic',
-                value: Math.atan2(mpuData[6], mpuData[7]),
+                value: radians.heading,
+              },
+              {
+                path: 'navigation.attitude',
+                value: {
+                  pitch: radians.pitch,
+                  roll: radians.roll,
+                },
               },
             ],
           },
