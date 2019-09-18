@@ -1,0 +1,35 @@
+{
+  "name": "@meri-imperiumi/signalk-raspberry-pi-gy91",
+  "version": "1.0.0",
+  "description": "SignalK node server plugin that reads data from GY-91 multi-sensor module on Raspberry-Pi",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint .",
+    "test": "npm run lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/meri-imperiumi/signalk-raspberry-pi-gy91.git"
+  },
+  "keywords": [
+    "signalk-node-server-plugin",
+    "bmp280",
+    "mpu9250",
+    "gy91"
+  ],
+  "author": "Henri Bergius <henri.bergius@iki.fi>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/meri-imperiumi/signalk-raspberry-pi-gy91/issues"
+  },
+  "homepage": "https://github.com/meri-imperiumi/signalk-raspberry-pi-gy91#readme",
+  "devDependencies": {
+    "eslint": "^6.4.0",
+    "eslint-config-airbnb-base": "^14.0.0",
+    "eslint-plugin-import": "^2.18.2"
+  },
+  "dependencies": {
+    "bme280-sensor": "^0.1.6",
+    "mpu9250": "git://github.com/meri-imperiumi/mpu9250.git#i2c_fix"
+  }
+}
