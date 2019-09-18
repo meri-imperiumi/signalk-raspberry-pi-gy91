@@ -6,15 +6,27 @@ function toRadians(degrees) {
   return degrees * (Math.PI / 180);
 }
 
-function calcHeading(x, y) {
-  var heading = Math.atan2(y, x) * 180 / Math.PI;
+let magXdamp = 0.0;
+let magYdamp = 0.0;
+function calcTiltAdjustedHeading(magX, magY, magZ, pitch, roll) {
+  const magPitch = toRadians(-1 * roll);
+  const magRoll = toRadians(pitch);
 
-  if (heading < -180) {
-    heading += 360;
-  } else if (heading > 180) {
+  const magXhor = magX * Math.cos(magPitch) + magY * Math.sin(magRoll) * Math.sin(magPitch) - magZ * Math.cos(magRoll) * Math.sin(magPitch);
+  const magYhor = magY * Math.cos(magRoll) + magZ * Math.sin(magRoll);
+  magXdamp = magXdamp * 0.9 + magXhor * 0.1;
+  magYdamp = magYdamp * 0.9 + magYhor * 0.1;
+  return calcHeading(magYdamp, magXdamp);
+}
+
+function calcHeading(x, y) {
+  let heading = Math.atan2(y, x) * (180 / Math.PI);
+  if (heading > 360) {
     heading -= 360;
   }
-
+  if (heading < 0) {
+    heading += 360;
+  }
   return heading;
 }
 
@@ -57,12 +69,14 @@ module.exports = function plugin(app) {
       device: `/dev/i2c-${options.i2c_bus || 1}`,
       UpMagneto: true,
       scaleValues: true,
+      magCalibration: { min: { x: -78.890625, y: -26.3828125, z: -120.25 },
+          max: { x: 76.5, y: 123.51953125, z: 40.46875 },
+          offset: { x: -1.1953125, y: 48.568359375, z: -39.890625 },
+          scale:
+             { x: 1.4994846656611363,
+                  y: 1.5543843648208469,
+                       z: 1.4497739646120942 } },
       /*
-      gyroBiasOffset: {
-        x: 2.316015267175573,
-        y: -0.031587786259541964,
-        z: -0.23128244274809168
-      },
       magCalibration: { min: { x: -90.84375, y: -29.98046875, z: -123.71875 },
           max: { x: 62.15625, y: 135.51171875, z: 48.5625 },
           offset: { x: -14.34375, y: 52.765625, z: -37.578125 },
@@ -70,6 +84,11 @@ module.exports = function plugin(app) {
            { x: 1.6038347630718954,
                   y: 1.4827692017183591,
                   z: 1.4243379285325595 } },
+      gyroBiasOffset: {
+        x: 2.316015267175573,
+        y: -0.031587786259541964,
+        z: -0.23128244274809168
+      },
       accelCalibration: {
         offset: {
           x: 0.016557820638020835,
@@ -108,6 +127,7 @@ module.exports = function plugin(app) {
       const values = {
         heading: {
           raw: calcHeading(mpuData[6], mpuData[7]),
+          til: calcTiltAdjustedHeading(mpuData[6], mpuData[7], mpuData[8], madDeg.pitch, madDeg.roll),
           fix: madDeg.heading,
         },
         pitch: {
@@ -119,7 +139,7 @@ module.exports = function plugin(app) {
           fix: madDeg.roll,
         },
       };
-      console.log(JSON.stringify(values, null, 2));
+      console.log(JSON.stringify(values.heading, null, 2));
       const useValue = 'raw';
       return {
         context: `vessels.${app.selfId}`,
@@ -140,7 +160,7 @@ module.exports = function plugin(app) {
               },
               {
                 path: 'navigation.headingMagnetic',
-                value: toRadians(values.heading[useValue]),
+                value: toRadians(values.heading['til']),
               },
               {
                 path: 'navigation.attitude',
