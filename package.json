@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "bme280-sensor": "^0.1.6",
-    "mpu9250": "git://github.com/meri-imperiumi/mpu9250.git#i2c_fix",
+    "mpu9250": "^0.2.2",
     "ahrs": "^1.2.2"
   }
 }
